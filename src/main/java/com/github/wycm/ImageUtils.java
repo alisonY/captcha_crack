@@ -9,6 +9,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Iterator;
 
@@ -78,7 +79,7 @@ public class ImageUtils {
     }
 
     /**
-     * 图片拼接 （注意：必须两张图片长宽一致哦）
+     * 图片拼接 （注意：必须两张图片长宽一致）
      *
      * @param files      要拼接的文件列表
      * @param type       1横向拼接，2 纵向拼接
@@ -148,13 +149,15 @@ public class ImageUtils {
      */
     public static void witeImg(BufferedImage bufferedImage, String outFile) {
         File tempOutFile = new File(outFile);
-        if (!tempOutFile.exists()) {
-            tempOutFile.mkdirs();
-        }
-        String ext = outFile.substring(outFile.lastIndexOf(".") + 1).trim();
+//        if (!tempOutFile.exists()) {
+//            tempOutFile.mkdirs();
+//        }
+        String ext = outFile.substring(outFile.lastIndexOf(".")+1).trim();
         try {
-            ImageIO.write(bufferedImage, ext, new File(outFile));
+            ImageIO.write(bufferedImage, ext, tempOutFile);
         } catch (IOException e) {
+            e.printStackTrace();
+        }catch(Exception e){
             e.printStackTrace();
         }
     }
@@ -214,7 +217,11 @@ public class ImageUtils {
         frame.setVisible(true);
     }
 
-
+    /**
+     * 拉普拉斯变换
+     * @param gray
+     * @return
+     */
     public static int[][] laplace(int[][] gray) {
         int width = gray.length;
         if (width <= 0){

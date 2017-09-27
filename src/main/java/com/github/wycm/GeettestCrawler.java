@@ -14,10 +14,14 @@ import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import javax.imageio.IIOException;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,9 +31,14 @@ public class GeettestCrawler {
     private static String divClass = "mCaptchaImgDiv";
     private static String picExt = ".png";
     private static int[][] moveArray = new int[40][2];
-    private static boolean moveArrayInit = false;
-    private static String INDEX_URL = "http://captchas.wanmei.com/demo/mCaptcha?capType=float";
+    //验证码操作总次数
+    private static int opNum = 50;
+    private static String INDEX_URL = "http://captchas.wanmei.com/demo/mCaptcha/forMachine?capType=embed";
     private static WebDriver driver;
+    private static int totalNum = 0;
+    private static int successNum = 0;
+    private static List<String> errorPics = new ArrayList<>();
+
 
     static {
         System.setProperty("webdriver.chrome.driver", "D:/workspace/chromedriver_win32/chromedriver.exe");
@@ -42,65 +51,100 @@ public class GeettestCrawler {
     }
 
     public static void main(String[] args) throws InterruptedException {
+
+        //打开网页
+        driver.get(INDEX_URL);
+        for (int i = 0; i < opNum; i++) {
+            if (i != 0) {
+                //如果不是第一次，则先进行刷新操作
+                System.out.println("第 " + i + " 次验证:");
+                driver.navigate().refresh();
+            }
             try {
-                invoke();
+                //破解验证码
+                crackCaptcha();
             } catch (IOException e) {
                 e.printStackTrace();
-            } catch (InterruptedException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
-//        driver.quit();
+        }
+        System.out.println("共计尝试 "+totalNum+" 次滑动验证码");
+        System.out.println("成功破解 "+successNum+" 次");
+        System.out.println("成功率为 "+successNum*100.0/totalNum+"%");
+
+
+        //        driver.quit();
     }
 
-    private static void invoke() throws IOException, InterruptedException {
-        //设置input参数
-        driver.get(INDEX_URL);
+    /**
+     * 滑动验证码破解
+     *
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private static void crackCaptcha() throws IOException, InterruptedException {
+
+        //验证码是否失效
         Actions actions = new Actions(driver);
-        //FIXME 通过[class=gt_slider_knob gt_show]
-        By btnBy = By.cssSelector(".mCaptchaSlideBorder");
-        waitForLoad(driver, btnBy);
-        WebElement moveButton = driver.findElement(btnBy);
-        //将鼠标移动至滑块上（浮动式滑验需要放置鼠标后才加载图片）
-        actions.moveToElement(moveButton);
-        //等待滑验图片加载
-        By picDiv = By.cssSelector("." + divClass);
-        waitForLoad(driver, picDiv);
-        //获得未打乱的图片
-        String finalImage = getOriginImg(driver);
-        //获得滑块的Y轴坐标
-        String initImageName = basePath + FULL_IMAGE_NAME + picExt;
-        getBlockYPos(initImageName);
-        int x = getMoveDis(finalImage,initImageName);
-        System.out.println("需要移动的距离为："+x);
-        move(driver,moveButton,x);
-
-        //FIXME for test
-        //        distance  = 200;
-
-        //        int i = 0;
-        //        while (i++ < 15){
-        //            int distance = getMoveDistance(driver);
-        //            //FIXME for test
-        //            distance  = 200;
-        //            move(driver, moveElemet, distance - 6);
-        //            By gtTypeBy = By.cssSelector(".gt_info_type");
-        //            By gtInfoBy = By.cssSelector(".gt_info_content");
-        //            waitForLoad(driver, gtTypeBy);
-        //            waitForLoad(driver, gtInfoBy);
-        //            String gtType = driver.findElement(gtTypeBy).getText();
-        //            String gtInfo = driver.findElement(gtInfoBy).getText();
-        //            System.out.println(gtType + "---" + gtInfo);
-        //            /**
-        //             * 再来一次：
-        //             * 验证失败：
-        //             */
-        //            if(!gtType.equals("再来一次:") && !gtType.equals("验证失败:")){
-        //                Thread.sleep(4000);
-        //                System.out.println(driver);
-        //                break;
-        //            }
-        //            Thread.sleep(4000);
-        //        }
+        //是否识别成功
+        boolean crackSuccess = false;
+        //最多尝试5次
+        for (int i = 0; i < 5; i++) {
+            if (i != 0) {
+                //如果不是第一次，则点击刷新图片
+                By freshBy = By.cssSelector(".sliderImgRefreshBtn");
+                waitForLoad(driver, freshBy);
+                WebElement freshButton = driver.findElement(freshBy);
+                actions.click(freshButton).perform();
+                //等待2s图片加载
+                Thread.sleep(2000);
+            }
+            //识别验证码计数
+            totalNum++;
+            //寻找滑动按钮
+            By btnBy = By.cssSelector(".mCaptchaSlideBorder");
+            waitForLoad(driver, btnBy);
+            WebElement moveButton = driver.findElement(btnBy);
+            //将鼠标移动至滑块上（浮动式滑验需要放置鼠标后才加载图片）
+            actions.moveToElement(moveButton);
+            //等待滑验图片加载
+            By picDiv = By.cssSelector("." + divClass);
+            waitForLoad(driver, picDiv);
+            //获得未打乱的图片
+            String finalImage = getOriginImg(driver);
+            //获得滑块的Y轴坐标
+            String initImageName = basePath + FULL_IMAGE_NAME + picExt;
+            int x = getMoveDis(finalImage, initImageName);
+            System.out.println("需要移动的距离为：" + x);
+//            //FIXME 增加50%的出错率测试稳定性
+            //            double rand = Math.random()*10;
+            //            if(rand<5){
+            //                x = x+20;
+            //            }
+            move(driver, moveButton, x);
+            for (i = 0; i < 3; i++) {
+                //                WebElement alertText = driver.findElement(alertTextBy);
+                By alertTextBy = By.cssSelector(".sliderImgAlert p.text");
+                WebElement alertText = driver.findElement(alertTextBy);
+                String text = alertText.getAttribute("innerHTML");
+                //                String html = alertText.getAttribute("HTML");
+                System.out.println(text);
+                if (text.contains("验证通过")) {
+                    //验证成功计数
+                    successNum++;
+                    Thread.sleep(1000);
+                    return;
+                } else if (text.contains("次数过多")) {
+                    Thread.sleep(1000);
+                    return;
+                } else if (text.contains("验证失败")) {
+                    //等待动画结束
+                }
+                Thread.sleep(1000);
+            }
+            //识别失败，记录造成失败的图片
+        }
     }
 
     /**
@@ -113,9 +157,9 @@ public class GeettestCrawler {
      */
     public static void move(WebDriver driver, WebElement element, int distance) throws InterruptedException {
         //距离补偿
-        distance = distance + 12;
-        printLocation(element);
-        System.out.println("应平移距离：" + distance);
+        distance = distance + 1;
+        //        printLocation(element);
+        //        System.out.println("应平移距离：" + distance);
         Actions actions = new Actions(driver);
         //按下鼠标左键
         new Actions(driver).clickAndHold(element).perform();
@@ -130,18 +174,18 @@ public class GeettestCrawler {
             xMoveDistance += xStep;
             actions.moveByOffset(xStep, 0).perform();
             //打印控件位置
-            printLocation(element);
-            System.out.println("move distance = " + xMoveDistance);
-            //每0.2s移动一次
-            Thread.sleep(200);
+            //printLocation(element);
+            //System.out.println("move distance = " + xMoveDistance);
+            //每0.1s移动一次
+            Thread.sleep(100);
         }
 
         //FIXME TEST
-        By btnBy = By.cssSelector(".sliderImgOuterContainerWrapper");
-        element = driver.findElement(btnBy);
+        //By btnBy = By.cssSelector(".sliderImgOuterContainerWrapper");
+        //element = driver.findElement(btnBy);
         //松开鼠标左键
         actions.release().perform();
-        printLocation(element);
+        //printLocation(element);
     }
 
     private static void printLocation(WebElement element) {
@@ -179,8 +223,15 @@ public class GeettestCrawler {
         //获得图片URL
         String fullImageUrl = getFullImageUrl(pageSource);
         String initImageName = basePath + FULL_IMAGE_NAME + picExt;
+        //信任所有证书
+        try {
+            CertificationTrusted.trustAllHttpsCertificates();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         //将URL图片资源保存至本地文件
         FileUtils.copyURLToFile(new URL(fullImageUrl), new File(initImageName));
+        //初始化排列矩阵
         initMoveArray(driver);
         String finalImageName = restoreImage(FULL_IMAGE_NAME, 2, 20);
         return finalImageName;
@@ -193,9 +244,6 @@ public class GeettestCrawler {
      * @param driver
      */
     private static void initMoveArray(WebDriver driver) {
-        if (moveArrayInit) {
-            return;
-        }
         Document document = Jsoup.parse(driver.getPageSource());
         Elements elements = document.select("[class=" + divClass + "]");
         int i = 0;
@@ -213,7 +261,6 @@ public class GeettestCrawler {
                 throw new RuntimeException("解析异常");
             }
         }
-        moveArrayInit = true;
     }
 
     /**
@@ -221,14 +268,17 @@ public class GeettestCrawler {
      *
      * @param baseName
      */
-    private static String restoreImage(String baseName, int row, int col) throws IOException {
+    private static String restoreImage(String baseName, int row, int col){
         //把图片裁剪为row * col份
         int cutNum = row * col;
         for (int i = 0; i < cutNum; i++) {
             BufferedImage bImg = ImageUtils.getCutPic(basePath + baseName + picExt, -moveArray[i][0], -moveArray[i][1], 13, 60);
+            if(bImg==null){
+                System.out.println("cut image null");
+            }
             //在本地存储图片
-            ImageUtils.witeImg(bImg, basePath + "result/" + baseName + i + picExt);
-    }
+                ImageUtils.witeImg(bImg, basePath + "result/" + baseName + i + picExt);
+        }
         //拼接图片
         String[] picColList = new String[col];//图片行向量
         String[] picRowList = new String[row];//图片列向量
@@ -263,7 +313,6 @@ public class GeettestCrawler {
     private static String getFullImageUrl(String pageSource) {
         String url = null;
         Document document = Jsoup.parse(pageSource);
-        //        System.out.println("Document = "+document);
         String style = document.select("[class=" + divClass + "]").first().attr("style");
         Pattern pattern = Pattern.compile("url\\(.*\\)");
         Matcher matcher = pattern.matcher(style);
@@ -271,7 +320,7 @@ public class GeettestCrawler {
             url = matcher.group(0);
         }
         url = url.substring(4, url.lastIndexOf(')'));
-        System.out.println(url);
+//        System.out.println("func:getFullImageUrl =" + url);
         return url;
     }
 
@@ -281,7 +330,7 @@ public class GeettestCrawler {
         BufferedImage blockImg = ImageUtils.getCutPic(originImgName, 260, 0, width, height);
         int[][] gray = ImageUtils.getGray(blockImg);
         int middle = 0;
-        for (int i = 0; i <width; i++) {
+        for (int i = 0; i < width; i++) {
             int first = -1;//第一个不为0的像素块位置
             int last = -1;//最后一个不为0的像素块位置
             for (int j = 0; j < height - 1; j++) {
@@ -292,9 +341,9 @@ public class GeettestCrawler {
                     last = j;
                 }
             }
-//            System.out.println("第"+i+"列:"+first+" -----  "+last);
-            if(first !=-1&&last != -1){
-                middle = (first+last)/2;
+            //            System.out.println("第"+i+"列:"+first+" -----  "+last);
+            if (first != -1 && last != -1) {
+                middle = (first + last) / 2;
                 break;
             }
         }
@@ -307,23 +356,23 @@ public class GeettestCrawler {
         return middle;
     }
 
-    public static int getMoveDis(String finalImage,String initImageName){
+    public static int getMoveDis(String finalImage, String initImageName) {
         //完整图像
         BufferedImage fImg = ImageUtils.getPic(finalImage);
         //拼图块
-        BufferedImage block = ImageUtils.getCutPic(initImageName,260,0,61,120);
+        BufferedImage block = ImageUtils.getCutPic(initImageName, 260, 0, 61, 120);
         //获得灰度图像
-        int[][] fImgGrayPixel= ImageUtils.getGray(fImg);
+        int[][] fImgGrayPixel = ImageUtils.getGray(fImg);
         int[][] blockGrayPixel = ImageUtils.getGray(block);
         //保存灰度图像
-        ImageUtils.witeImg(ImageUtils.generateGrayImage(fImgGrayPixel),basePath+"final-gray"+picExt);
-        ImageUtils.witeImg(ImageUtils.generateGrayImage(blockGrayPixel),basePath+"block-gray"+picExt);
+        ImageUtils.witeImg(ImageUtils.generateGrayImage(fImgGrayPixel), basePath + "final-gray" + picExt);
+        ImageUtils.witeImg(ImageUtils.generateGrayImage(blockGrayPixel), basePath + "block-gray" + picExt);
         //对滑块部分做纯色处理
         for (int i = 0; i < 61; i++) {
             for (int j = 0; j < 120; j++) {
-                if (blockGrayPixel[i][j]>10){
+                if (blockGrayPixel[i][j] > 10) {
                     blockGrayPixel[i][j] = 225;
-                }else{
+                } else {
                     blockGrayPixel[i][j] = 0;
                 }
             }
@@ -333,36 +382,33 @@ public class GeettestCrawler {
         fImgGrayPixel = ImageUtils.laplace(fImgGrayPixel);
         blockGrayPixel = ImageUtils.laplace(blockGrayPixel);
         //保存拉布拉斯变换结果
-        ImageUtils.witeImg(ImageUtils.generateGrayImage(fImgGrayPixel),basePath+"final-gray-laplace"+picExt);
-        ImageUtils.witeImg(ImageUtils.generateGrayImage(blockGrayPixel),basePath+"block-gray-laplace"+picExt);
+        ImageUtils.witeImg(ImageUtils.generateGrayImage(fImgGrayPixel), basePath + "final-gray-laplace" + picExt);
+        ImageUtils.witeImg(ImageUtils.generateGrayImage(blockGrayPixel), basePath + "block-gray-laplace" + picExt);
         //匹配滑块
-        return matchBlock(fImgGrayPixel,blockGrayPixel);
+        return matchBlock(fImgGrayPixel, blockGrayPixel);
     }
 
-    public static int matchBlock(int[][] img, int[][] block){
+    public static int matchBlock(int[][] img, int[][] block) {
         int imgW = img.length;
         int imgH = img[0].length;
         int bW = block.length;
         int bH = block[0].length;
         int maxSum = 0;
         int matchPos = 0;
-        for (int i = 0; i < imgW-bW+1; i++) {
+        for (int i = 0; i < imgW - bW + 1; i++) {
             int sum = 0;
             for (int j = 0; j < bW; j++) {
                 for (int k = 0; k < bH; k++) {
-                    sum+= img[i+j][k]*block[j][k];
+                    sum += img[i + j][k] * block[j][k];
                 }
             }
-            if(sum>maxSum){
+            if (sum > maxSum) {
                 maxSum = sum;
                 matchPos = i;
             }
         }
         return matchPos;
     }
-
-
-
 
 
     /**
