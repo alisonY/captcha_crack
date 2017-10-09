@@ -22,10 +22,11 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class GeettestCrawler {
+public class pwCaptchaCrack {
     private static String basePath = "src/main/resources/";
     private static String FULL_IMAGE_NAME = "full-image";
     private static String divClass = "mCaptchaImgDiv";
@@ -48,6 +49,9 @@ public class GeettestCrawler {
         //        }
         System.out.println(System.getProperty("os.name"));
         driver = new ChromeDriver();
+        //设置加载等待时间
+        driver.manage().timeouts().pageLoadTimeout(-1,TimeUnit.SECONDS);
+        driver.manage().timeouts().implicitlyWait(3, TimeUnit.SECONDS);
     }
 
     public static void main(String[] args) throws InterruptedException {
@@ -104,24 +108,22 @@ public class GeettestCrawler {
             totalNum++;
             //寻找滑动按钮
             By btnBy = By.cssSelector(".mCaptchaSlideBorder");
-            waitForLoad(driver, btnBy);
             WebElement moveButton = driver.findElement(btnBy);
+//            //FIXME
+//            WebElement picBlock = driver.findElement(By.cssSelector(".mCaptchaImgDiv"));
+//            String url = picBlock.getCssValue("background-image");
+
+
             //将鼠标移动至滑块上（浮动式滑验需要放置鼠标后才加载图片）
             actions.moveToElement(moveButton);
             //等待滑验图片加载
             By picDiv = By.cssSelector("." + divClass);
-            waitForLoad(driver, picDiv);
             //获得未打乱的图片
             String finalImage = getOriginImg(driver);
             //获得滑块的Y轴坐标
             String initImageName = basePath + FULL_IMAGE_NAME + picExt;
             int x = getMoveDis(finalImage, initImageName);
             System.out.println("需要移动的距离为：" + x);
-//            //FIXME 增加50%的出错率测试稳定性
-            //            double rand = Math.random()*10;
-            //            if(rand<5){
-            //                x = x+20;
-            //            }
             move(driver, moveButton, x);
             for (i = 0; i < 3; i++) {
                 //                WebElement alertText = driver.findElement(alertTextBy);
@@ -144,6 +146,7 @@ public class GeettestCrawler {
                 Thread.sleep(1000);
             }
             //识别失败，记录造成失败的图片
+
         }
     }
 
@@ -183,9 +186,10 @@ public class GeettestCrawler {
         //FIXME TEST
         //By btnBy = By.cssSelector(".sliderImgOuterContainerWrapper");
         //element = driver.findElement(btnBy);
+        //printLocation(element);
         //松开鼠标左键
         actions.release().perform();
-        //printLocation(element);
+
     }
 
     private static void printLocation(WebElement element) {
