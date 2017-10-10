@@ -14,10 +14,8 @@ import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
-import javax.imageio.IIOException;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -28,7 +26,7 @@ import java.util.regex.Pattern;
 
 public class pwCaptchaCrack {
     private static String basePath = "src/main/resources/";
-    private static String FULL_IMAGE_NAME = "full-image";
+    private static String ORIGIN_IMAGE_NAME = "origin-image";
     private static String divClass = "mCaptchaImgDiv";
     private static String picExt = ".png";
     private static int[][] moveArray = new int[40][2];
@@ -55,7 +53,6 @@ public class pwCaptchaCrack {
     }
 
     public static void main(String[] args) throws InterruptedException {
-
         //打开网页
         driver.get(INDEX_URL);
         for (int i = 0; i < opNum; i++) {
@@ -121,7 +118,7 @@ public class pwCaptchaCrack {
             //获得未打乱的图片
             String finalImage = getOriginImg(driver);
             //获得滑块的Y轴坐标
-            String initImageName = basePath + FULL_IMAGE_NAME + picExt;
+            String initImageName = basePath + ORIGIN_IMAGE_NAME + picExt;
             int x = getMoveDis(finalImage, initImageName);
             System.out.println("需要移动的距离为：" + x);
             move(driver, moveButton, x);
@@ -226,7 +223,7 @@ public class pwCaptchaCrack {
         String pageSource = driver.getPageSource();
         //获得图片URL
         String fullImageUrl = getFullImageUrl(pageSource);
-        String initImageName = basePath + FULL_IMAGE_NAME + picExt;
+        String initImageName = basePath + ORIGIN_IMAGE_NAME + picExt;
         //信任所有证书
         try {
             CertificationTrusted.trustAllHttpsCertificates();
@@ -237,7 +234,7 @@ public class pwCaptchaCrack {
         FileUtils.copyURLToFile(new URL(fullImageUrl), new File(initImageName));
         //初始化排列矩阵
         initMoveArray(driver);
-        String finalImageName = restoreImage(FULL_IMAGE_NAME, 2, 20);
+        String finalImageName = restoreImage(ORIGIN_IMAGE_NAME, 2, 20);
         return finalImageName;
     }
 
@@ -317,6 +314,7 @@ public class pwCaptchaCrack {
     private static String getFullImageUrl(String pageSource) {
         String url = null;
         Document document = Jsoup.parse(pageSource);
+
         String style = document.select("[class=" + divClass + "]").first().attr("style");
         Pattern pattern = Pattern.compile("url\\(.*\\)");
         Matcher matcher = pattern.matcher(style);

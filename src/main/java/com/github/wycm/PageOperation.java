@@ -2,7 +2,10 @@ package com.github.wycm;
 
 import org.apache.commons.io.FileUtils;
 import org.jsoup.Jsoup;
+import org.jsoup.helper.StringUtil;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -26,6 +29,7 @@ import java.util.regex.Pattern;
 public class PageOperation {
     private WebDriver driver;
     private Actions actions;
+    private final String DEFAULT_ORIGIN_IMG_NAME = "origin-image";
     public PageOperation(){
         System.setProperty("webdriver.chrome.driver", "D:/workspace/chromedriver_win32/chromedriver.exe");
         driver = new ChromeDriver();
@@ -44,6 +48,7 @@ public class PageOperation {
 
     /**
      * 获取原始图url
+     * @param divClass 包含图片的标签class
      * @return
      */
     public String findImgUrl(String divClass) {
@@ -61,11 +66,45 @@ public class PageOperation {
         return url;
     }
     /**
-     * 得到原始图片
+     * 得到原始图片，下载到本地
+     * @param url 图片地址
+     * @param filePath 本地图片路径
      * @return
      * @throws IOException
      */
+    public String downloadImg(String url, String filePath) throws IOException{
+        if (StringUtil.isBlank(filePath)){
+            filePath = "src/main/resources/origin-image.png";
+        }
+        //将URL图片资源保存至本地文件
+        FileUtils.copyURLToFile(new URL(url), new File(filePath));
+        return filePath;
+    }
 
+    /**
+     * 获取图片排列的偏移矩阵
+     * @param divClass 包含图片的标签class
+     * @param row 图片分割行数
+     * @param col 图片分割列数
+     */
+    private void getOffsetMat(String divClass, int row, int col) {
+        Document document = Jsoup.parse(driver.getPageSource());
+        Elements elements = document.select("[class=" + divClass + "]");
+        int i = 0;
+        Integer[][] offsetMat = new Integer[row*col][2];
+        for (Element element : elements) {
+            Pattern pattern = Pattern.compile(".*background-position: (-*\\d*)px (-*\\d*).*");
+            Matcher matcher = pattern.matcher(element.toString());
+            if (matcher.find()) {
+                String width = matcher.group(1);
+                String height = matcher.group(2);
+                offsetMat[i][0] = Integer.parseInt(width);
+                offsetMat[i++][1] = Integer.parseInt(height);
+            } else {
+                throw new RuntimeException("解析异常");
+            }
+        }
+    }
 
 
 
